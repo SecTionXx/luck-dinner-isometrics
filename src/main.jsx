@@ -1,18 +1,24 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
   ArrowRight,
   ArrowUp,
+  Bot,
+  Camera,
+  ChefHat,
   Clock3,
+  Download,
   Dumbbell,
   ExternalLink,
+  FileText,
   Menu,
   MoonStar,
   Pause,
   Play,
   RefreshCw,
   RotateCcw,
+  Share2,
   ShieldCheck,
   Sparkles,
   Timer,
@@ -204,6 +210,31 @@ const dinnerOptions = [
 
 const timerPresets = [15, 20, 30];
 
+const articleSlugs = [
+  "aries",
+  "taurus",
+  "gemini",
+  "cancer",
+  "leo",
+  "virgo",
+  "libra",
+  "scorpio",
+  "sagittarius",
+  "capricorn",
+  "aquarius",
+  "pisces",
+];
+
+const pantryKeywords = [
+  { key: "ปลา", label: "ปลา", tags: ["โปรตีนสูง", "เบาๆ"] },
+  { key: "ไก่", label: "ไก่", tags: ["โปรตีนสูง"] },
+  { key: "ไข่", label: "ไข่", tags: ["งบน้อย", "โปรตีนสูง"] },
+  { key: "เต้าหู้", label: "เต้าหู้", tags: ["มังสวิรัติ", "โปรตีนสูง"] },
+  { key: "ผัก", label: "ผัก", tags: ["เบาๆ"] },
+  { key: "ข้าว", label: "ข้าว", tags: ["งบน้อย"] },
+  { key: "โยเกิร์ต", label: "โยเกิร์ต", tags: ["ไม่มีครัว", "เบาๆ"] },
+];
+
 function getDailyIndex(length) {
   const today = new Date();
   const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
@@ -216,6 +247,27 @@ function formatTime(totalSeconds) {
   return `${minutes}:${seconds}`;
 }
 
+function wrapCanvasText(context, text, x, y, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  let nextY = y;
+
+  words.forEach((word, index) => {
+    const testLine = line ? `${line} ${word}` : word;
+    if (context.measureText(testLine).width > maxWidth && line) {
+      context.fillText(line, x, nextY);
+      line = word;
+      nextY += lineHeight;
+    } else {
+      line = testLine;
+    }
+
+    if (index === words.length - 1) {
+      context.fillText(line, x, nextY);
+    }
+  });
+}
+
 function App() {
   const [selected, setSelected] = useState("กันย์");
   const [filter, setFilter] = useState("ทั้งหมด");
@@ -226,6 +278,12 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [displayedSign, setDisplayedSign] = useState("กันย์");
+  const [shareStatus, setShareStatus] = useState("พร้อมสร้างการ์ด");
+  const [pantryText, setPantryText] = useState("ไข่ เต้าหู้ ผัก ข้าวกล้อง");
+  const [assistantNeed, setAssistantNeed] = useState("เบาๆ");
+  const [fridgeImageName, setFridgeImageName] = useState("");
+  const [assistantPlan, setAssistantPlan] = useState(null);
+  const shareCanvasRef = useRef(null);
 
   const current = useMemo(
     () => ascendants.find((item) => item.sign === displayedSign) ?? ascendants[5],
@@ -238,6 +296,14 @@ function App() {
         ? dinnerOptions
         : dinnerOptions.filter((option) => option.tags.includes(filter)),
     [filter],
+  );
+  const articleLinks = useMemo(
+    () =>
+      ascendants.map((item, index) => ({
+        ...item,
+        href: `/articles/${articleSlugs[index]}.html`,
+      })),
+    [],
   );
 
   // Timer logic
@@ -310,6 +376,128 @@ function App() {
     setIsRunning(false);
   }
 
+  function drawShareCard() {
+    const canvas = shareCanvasRef.current;
+    if (!canvas) return null;
+
+    const width = 1080;
+    const height = 1350;
+    const context = canvas.getContext("2d");
+    canvas.width = width;
+    canvas.height = height;
+
+    const gradient = context.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, "#07161b");
+    gradient.addColorStop(0.55, "#0f3d3a");
+    gradient.addColorStop(1, "#14110e");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, width, height);
+
+    context.fillStyle = "rgba(255, 248, 236, 0.08)";
+    context.fillRect(70, 70, width - 140, height - 140);
+    context.strokeStyle = "rgba(255, 248, 236, 0.18)";
+    context.lineWidth = 3;
+    context.strokeRect(70, 70, width - 140, height - 140);
+
+    context.fillStyle = "#6bd0bf";
+    context.font = "700 44px Kanit, Noto Sans Thai, sans-serif";
+    context.fillText("Rising Dinner Lab", 110, 160);
+
+    context.fillStyle = "#fff8ec";
+    context.font = "800 92px Kanit, Noto Sans Thai, sans-serif";
+    context.fillText(`${current.symbol} ลัคนา${current.sign}`, 110, 310);
+
+    context.font = "800 70px Kanit, Noto Sans Thai, sans-serif";
+    wrapCanvasText(context, current.tone, 110, 410, 850, 84);
+
+    context.fillStyle = "#d6a94a";
+    context.font = "700 36px Kanit, Noto Sans Thai, sans-serif";
+    context.fillText("คืนนี้กิน", 110, 660);
+    context.fillText("เกร็งค้าง", 110, 880);
+
+    context.fillStyle = "#fff8ec";
+    context.font = "600 48px Kanit, Noto Sans Thai, sans-serif";
+    wrapCanvasText(context, current.dinner, 110, 730, 820, 58);
+    wrapCanvasText(context, current.move, 110, 950, 820, 58);
+
+    context.fillStyle = "rgba(255, 248, 236, 0.76)";
+    context.font = "400 34px Kanit, Noto Sans Thai, sans-serif";
+    wrapCanvasText(context, current.note, 110, 1130, 820, 46);
+
+    context.fillStyle = "#e76f51";
+    context.fillRect(110, 1228, 300, 58);
+    context.fillStyle = "#ffffff";
+    context.font = "700 28px Kanit, Noto Sans Thai, sans-serif";
+    context.fillText("luck-dinner-isometrics", 132, 1268);
+
+    return canvas;
+  }
+
+  function downloadShareCard() {
+    const canvas = drawShareCard();
+    if (!canvas) return;
+
+    const link = document.createElement("a");
+    link.download = `rising-dinner-${current.sign}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    setShareStatus("ดาวน์โหลดการ์ดแล้ว");
+  }
+
+  async function shareCard() {
+    const canvas = drawShareCard();
+    if (!canvas || !navigator.share) {
+      downloadShareCard();
+      return;
+    }
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `rising-dinner-${current.sign}.png`, { type: "image/png" });
+      try {
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({
+            title: `คืนนี้ของลัคนา${current.sign}`,
+            text: `${current.dinner} | ${current.move}`,
+            files: [file],
+          });
+          setShareStatus("เปิด share sheet แล้ว");
+        } else {
+          downloadShareCard();
+        }
+      } catch {
+        setShareStatus("ยกเลิกการแชร์");
+      }
+    }, "image/png");
+  }
+
+  function generateAssistantPlan() {
+    const normalized = pantryText.toLowerCase();
+    const matched = pantryKeywords.filter((item) => normalized.includes(item.key));
+    const matchedTags = new Set(matched.flatMap((item) => item.tags).concat(assistantNeed));
+    const scored = dinnerOptions
+      .map((option) => ({
+        ...option,
+        score: option.tags.reduce((total, tag) => total + (matchedTags.has(tag) ? 1 : 0), 0),
+      }))
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, "th"));
+    const suggestion = scored[0] ?? dinnerOptions[0];
+    const protein = matched.find((item) => ["ปลา", "ไก่", "ไข่", "เต้าหู้"].includes(item.key))?.label ?? "โปรตีนหลัก";
+    const vegetable = matched.find((item) => item.key === "ผัก") ? "ผักที่มี" : "ผักสดหรือผักลวก";
+    const carb = matched.find((item) => item.key === "ข้าว") ? "ข้าวที่มี" : "ข้าวกล้องหรือมันหวาน";
+
+    setAssistantPlan({
+      title: suggestion.name,
+      reason: `เลือกจากเป้าหมาย "${assistantNeed}" และวัตถุดิบที่เจอ: ${matched.map((item) => item.label).join(", ") || "ยังไม่พบ keyword ชัดเจน"}`,
+      steps: [
+        `จัดจาน 2:1:1 ด้วย ${vegetable} ครึ่งจาน`,
+        `ใช้ ${protein} เป็นโปรตีนหลัก แล้วลดน้ำมัน/ซอสหวาน`,
+        `เติม ${carb} หนึ่งส่วน ถ้ายังหิวให้เพิ่มผักก่อนเพิ่มแป้ง`,
+      ],
+      gap: matched.length < 2 ? "เพิ่มผักและโปรตีนให้ชัดขึ้นก่อนเริ่มทำ" : "ของที่มีพอทำมื้อเย็นได้แล้ว",
+    });
+  }
+
   function closeMenu() {
     setMenuOpen(false);
   }
@@ -325,6 +513,8 @@ function App() {
           <div className="navlinks">
             <a href="#selector">ลัคนา</a>
             <a href="#daily">สุ่มคืนนี้</a>
+            <a href="#share">Share Card</a>
+            <a href="#assistant">Assistant</a>
             <a href="#dinner">มื้อเย็น</a>
             <a href="#movement">Isometric</a>
             <a href="#sources">Sources</a>
@@ -339,7 +529,7 @@ function App() {
           </button>
         </nav>
 
-        <div className="mobile-menu" aria-hidden={!menuOpen}>
+        <div className={`mobile-menu${menuOpen ? " open" : ""}`} aria-hidden={!menuOpen}>
           <button
             className="mobile-menu__close"
             type="button"
@@ -350,6 +540,8 @@ function App() {
           </button>
           <a href="#selector" onClick={closeMenu}>ลัคนา</a>
           <a href="#daily" onClick={closeMenu}>สุ่มคืนนี้</a>
+          <a href="#share" onClick={closeMenu}>Share Card</a>
+          <a href="#assistant" onClick={closeMenu}>Assistant</a>
           <a href="#dinner" onClick={closeMenu}>มื้อเย็น</a>
           <a href="#movement" onClick={closeMenu}>Isometric</a>
           <a href="#sources" onClick={closeMenu}>Sources</a>
@@ -508,6 +700,57 @@ function App() {
           </div>
         </section>
 
+        <section className="share-section reveal" id="share">
+          <div className="section-heading">
+            <p className="section-kicker">Phase 2 Growth</p>
+            <h2>สร้างการ์ดแชร์ประจำลัคนา</h2>
+          </div>
+          <div className="share-layout">
+            <article className="share-preview" aria-label="ตัวอย่างการ์ดแชร์">
+              <div className="share-preview__brand">Rising Dinner Lab</div>
+              <div className="share-preview__sign">{current.symbol} ลัคนา{current.sign}</div>
+              <h3>{current.tone}</h3>
+              <p>กิน: {current.dinner}</p>
+              <p>เกร็งค้าง: {current.move}</p>
+              <span>{current.note}</span>
+            </article>
+            <div className="share-tools">
+              <p>
+                ใช้ผลลัพธ์จากลัคนาที่เลือกอยู่ตอนนี้ สร้างเป็น PNG แนว social card สำหรับส่งใน
+                LINE, IG Story หรือเก็บไว้เป็น routine คืนนี้
+              </p>
+              <div className="timer-actions">
+                <button className="tool-button" type="button" onClick={downloadShareCard}>
+                  <Download size={18} aria-hidden="true" />
+                  ดาวน์โหลด PNG
+                </button>
+                <button className="ghost-button" type="button" onClick={shareCard}>
+                  <Share2 size={18} aria-hidden="true" />
+                  แชร์
+                </button>
+              </div>
+              <p className="tool-copy">{shareStatus}</p>
+              <canvas ref={shareCanvasRef} className="share-canvas" aria-hidden="true" />
+            </div>
+          </div>
+        </section>
+
+        <section className="article-section reveal" id="articles">
+          <div className="section-heading">
+            <p className="section-kicker">Phase 2 SEO Hub</p>
+            <h2>หน้าอ่านต่อสำหรับ 12 ลัคนา</h2>
+          </div>
+          <div className="article-grid">
+            {articleLinks.map((item) => (
+              <a className="article-card" href={item.href} key={item.sign}>
+                <FileText size={20} aria-hidden="true" />
+                <strong>{item.symbol} ลัคนา{item.sign}</strong>
+                <span>{item.tone}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+
         <section className="split-section warm-bg reveal" id="dinner">
           <div className="text-block">
             <p className="section-kicker">Dinner Table</p>
@@ -552,6 +795,72 @@ function App() {
                 <span>{option.detail}</span>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="assistant-section reveal" id="assistant">
+          <div className="section-heading">
+            <p className="section-kicker">Phase 3 Assistant</p>
+            <h2>Fridge Coach ช่วยคิดจากของที่มี</h2>
+          </div>
+          <div className="assistant-layout">
+            <div className="assistant-panel">
+              <label htmlFor="pantry-input">พิมพ์ของที่มีในตู้เย็น</label>
+              <textarea
+                id="pantry-input"
+                value={pantryText}
+                onChange={(event) => setPantryText(event.target.value)}
+                rows={5}
+              />
+              <label htmlFor="assistant-need">คืนนี้อยากได้แบบไหน</label>
+              <select
+                id="assistant-need"
+                value={assistantNeed}
+                onChange={(event) => setAssistantNeed(event.target.value)}
+              >
+                {dinnerFilters.filter((item) => item !== "ทั้งหมด").map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              <label className="image-upload">
+                <Camera size={18} aria-hidden="true" />
+                <span>{fridgeImageName || "แนบรูปตู้เย็นเพื่อเก็บชื่อไฟล์ไว้กับ prompt"}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setFridgeImageName(event.target.files?.[0]?.name ?? "")}
+                />
+              </label>
+              <button className="tool-button" type="button" onClick={generateAssistantPlan}>
+                <Bot size={18} aria-hidden="true" />
+                สร้างแผนมื้อเย็น
+              </button>
+            </div>
+            <article className="assistant-result">
+              <div className="tool-title">
+                <ChefHat size={24} aria-hidden="true" />
+                <div>
+                  <p>Local Meal Assistant</p>
+                  <h3>{assistantPlan?.title ?? "ยังไม่ได้สร้างแผน"}</h3>
+                </div>
+              </div>
+              {assistantPlan ? (
+                <>
+                  <p className="tool-copy">{assistantPlan.reason}</p>
+                  <div className="mini-plan">
+                    {assistantPlan.steps.map((step) => (
+                      <span key={step}>{step}</span>
+                    ))}
+                  </div>
+                  <p className="note">{assistantPlan.gap}</p>
+                </>
+              ) : (
+                <p className="tool-copy">
+                  ระบบนี้เป็น local rule-based assistant สำหรับ prototype ไม่ส่งรูปหรือข้อมูลออกนอกเว็บ
+                  และเตรียมช่องทางไว้ต่อยอดเป็น AI vision/API ภายหลัง
+                </p>
+              )}
+            </article>
           </div>
         </section>
 
