@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -294,8 +294,9 @@ function App() {
   }
 
   function chooseDailyRoutine() {
-    setDailyPick((value) => (value + 5) % ascendants.length);
-    setSelected(ascendants[(dailyPick + 5) % ascendants.length].sign);
+    const nextIndex = (dailyPick + 5) % ascendants.length;
+    setDailyPick(nextIndex);
+    handleSelect(ascendants[nextIndex].sign);
   }
 
   function selectDuration(nextDuration) {
